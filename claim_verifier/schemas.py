@@ -4,7 +4,7 @@ All the structured types used throughout the verification workflow.
 """
 
 from enum import Enum
-from typing import Annotated, List, Optional
+from typing import Annotated, List, Optional, Any
 from pydantic import BaseModel, Field
 from claim_extractor.schemas import ValidatedClaim
 from operator import add
@@ -15,7 +15,19 @@ class VerificationResult(str, Enum):
 
     SUPPORTED = "Supported"
     REFUTED = "Refuted"
-    # INSUFFICIENT_INFORMATION = "Insufficient Information"
+
+    # <-- START OF THE NEW, MORE ROBUST FIX
+    # This special method makes the Enum case-insensitive.
+    # It will automatically match "SUPPORTED" or "supported" to the correct Enum member.
+    @classmethod
+    def _missing_(cls, value):
+        if not isinstance(value, str):
+            return None
+        for member in cls:
+            if member.value.lower() == value.lower():
+                return member
+        return None
+    # <-- END OF THE NEW, MORE ROBUST FIX
 
 
 class Evidence(BaseModel):
@@ -51,6 +63,8 @@ class Verdict(BaseModel):
     sources: List[Evidence] = Field(
         default_factory=list, description="List of evidence sources"
     )
+
+    # The old field_validator block has been removed from here.
 
 
 class IntermediateAssessment(BaseModel):
