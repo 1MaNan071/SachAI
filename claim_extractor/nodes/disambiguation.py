@@ -26,6 +26,11 @@ logger = logging.getLogger(__name__)
 COMPLETIONS = DISAMBIGUATION_CONFIG["completions"]
 MIN_SUCCESSES = DISAMBIGUATION_CONFIG["min_successes"]
 
+# --- START OF ADDED CODE ---
+# A list of common pronouns to check for ambiguity.
+AMBIGUOUS_PRONOUNS = {"it", "he", "she", "they", "them", "his", "her", "its", "their"}
+# --- END OF ADDED CODE ---
+
 
 class DisambiguationOutput(BaseModel):
     """Response schema for disambiguation LLM calls."""
@@ -125,25 +130,50 @@ async def disambiguation_node(state: State) -> Dict[str, List[DisambiguatedConte
         logger.warning("Nothing to disambiguate")
         return {}
 
-    # Get LLM with temperature 0.2 for multiple completions
-    llm = get_llm(completions=COMPLETIONS)
+    # --- START OF CHANGED BLOCK ---
+    # Create a "fast lane" for sentences without obvious pronouns.
+    unambiguous_contents = []
+    ambiguous_contents = []
+    
+    # Sort claims into two lists: simple ones to pass through, complex ones for the LLM.
+    for item in selected_contents:
+        words = set(item.processed_sentence.lower().split())
+        if not AMBIGUOUS_PRONOUNS.intersection(words):
+            # If no pronouns are found, add it to the "fast lane"
+            unambiguous_contents.append(
+                _create_disambiguated_content(item.processed_sentence, item)
+            )
+            logger.info(f"Bypassing disambiguation for simple claim: '{item.processed_sentence}'")
+        else:
+            # If it has a pronoun, it needs the LLM's analysis
+            ambiguous_contents.append(item)
+    
+    disambiguated_from_llm = []
+    if ambiguous_contents:
+        logger.info(f"Sending {len(ambiguous_contents)} claims to LLM for disambiguation.")
+        # Get LLM with temperature 0.2 for multiple completions
+        llm = get_llm(completions=COMPLETIONS)
 
-    # Process all selected contents with voting
-    disambiguated_contents = await process_with_voting(
-        items=selected_contents,
-        processor=_single_disambiguation_attempt,
-        llm=llm,
-        completions=COMPLETIONS,
-        min_successes=MIN_SUCCESSES,
-        result_factory=_create_disambiguated_content,
-        description="sentence for disambiguation",
-    )
+        # Process only the ambiguous contents with voting
+        disambiguated_from_llm = await process_with_voting(
+            items=ambiguous_contents,
+            processor=_single_disambiguation_attempt,
+            llm=llm,
+            completions=COMPLETIONS,
+            min_successes=MIN_SUCCESSES,
+            result_factory=_create_disambiguated_content,
+            description="sentence for disambiguation",
+        )
 
-    if not disambiguated_contents:
+    # Combine the results from the "fast lane" and the LLM processing.
+    final_disambiguated_contents = unambiguous_contents + disambiguated_from_llm
+    # --- END OF CHANGED BLOCK ---
+
+    if not final_disambiguated_contents:
         logger.info("Nothing could be disambiguated")
         return {}
 
     logger.info(
-        f"Successfully disambiguated {len(disambiguated_contents)} of {len(selected_contents)} items"
+        f"Successfully disambiguated a total of {len(final_disambiguated_contents)} items"
     )
-    return {"disambiguated_contents": disambiguated_contents}
+    return {"disambiguated_contents": final_disambiguated_contents}
