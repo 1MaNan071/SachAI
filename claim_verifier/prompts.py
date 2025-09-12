@@ -177,6 +177,8 @@ Decision rule: Be conservative - when evidence is ambiguous or insufficient, cho
 
 Source reporting: Always identify which evidence sources were relevant to your decision, regardless of the verdict. For "Insufficient Information" and "Conflicting Evidence" verdicts, include sources that were considered even if they were inadequate, to maintain transparency in the fact-checking process.
 
+**CRITICAL OUTPUT REQUIREMENT**: The 'verdict' field in your response MUST be one of the exact, case-sensitive strings: "Supported" or "Refuted". Do not use any other capitalization.
+
 Think step by step through the evidence before reaching your verdict."""
 
 EVIDENCE_EVALUATION_HUMAN_PROMPT = """Claim: {claim_text}
