@@ -105,4 +105,3 @@ The "SachAI: AI Fact-Checker" extension will now appear in your list of installe
 **Note:** The Python backend server from Part 1 must be running in the background for the extension to work.
 
 ```
-```
