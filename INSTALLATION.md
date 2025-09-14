@@ -1,4 +1,4 @@
-````markdown
+
 # SachAI: Installation Guide
 
 This guide provides step-by-step instructions for setting up the SachAI project, including the core Flask backend and the browser extension, on your local machine.
